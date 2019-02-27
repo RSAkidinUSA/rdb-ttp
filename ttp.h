@@ -13,20 +13,25 @@ typedef struct {
 // Array of pointers to weeks. Allows for swapping weeks quickly
 // weeks start at 0
 typedef struct {
-	int numTeams;
-	int numRounds;
+	int num_teams;
+	int num_rounds;
+	int set_vals;
 	Round **round;
 } Schedule;
 
-Schedule *create_schedule(int numTeams);
-void delete_schedule(Schedule *s);
-void print_schedule(Schedule *s);
-#define SCHED_ATMOST	0x01
-#define SCHED_REPEAT	0x02
-int valid_schedule(Schedule *s);
+Schedule *CreateSchedule(int num_teams);
+void DeleteSchedule(Schedule *s);
+void PrintSchedule(Schedule *s);
+#define SCHED_INVALID	0x01
+#define SCHED_ATMOST	0x02
+#define SCHED_REPEAT	0x04
+int ValidSchedule(Schedule *s);
 
 // Neighborhood functions
-void swap_homes(Schedule *s, int t_i, int t_j);
-void swap_round(Schedule *s, int r_i, int r_j);
+void SwapHomes(Schedule *s, int t_i, int t_j);
+void SwapRounds(Schedule *s, int r_k, int r_l);
+void SwapTeams(Schedule *s, int t_i, int t_j);
+void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l);
+void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_l);
 
 #endif /* TTP_H */
