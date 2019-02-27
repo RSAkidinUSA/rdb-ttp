@@ -100,6 +100,8 @@ Schedule *CreateSchedule(int num_teams) {
 	s->num_teams = num_teams;
 	s->num_rounds = (num_teams * 2) - 2;
 	s->round = calloc(s->num_rounds, sizeof(*(s->round)));
+	s->cost.distance = calloc(s->num_teams * s->num_teams, sizeof(*(s->cost.distance)));
+	s->cost.team_cost = calloc(s->num_teams + 1, sizeof(*(s->cost.team_cost)));
 
 	// allocate memory
 	for (int i = 0; i < s->num_rounds; i++) {
@@ -112,14 +114,72 @@ Schedule *CreateSchedule(int num_teams) {
 	return s;
 }
 
+// Initialize the distances and calculate the current cost
+// returns 0 on failure, else a positive value
+int InitCost(Schedule *s, char *filename) {
+	FILE *fptr = fopen(filename, "r");
+	if (fptr == NULL) {
+		return 0;
+	}
+	// read in costs
+	for (int i = 0; i < s->num_teams * s->num_teams; i++) {
+		fscanf(fptr, " ");
+		if (!fscanf(fptr, "%d", &(s->cost.distance[i]))) {
+			fclose(fptr);
+			return 0;
+		}
+	}
+	fclose(fptr);
+
+	int prev_loc, new_loc;
+	for (int i = 1; i <= s->num_teams; i++) {
+		prev_loc = i;
+		for (int j = 0; j < s->num_rounds; j++) {
+			new_loc = (s->round[j]->team[i] > 0) ? i : abs(s->round[j]->team[i]);;
+			int dist = ((prev_loc - 1) * s->num_teams) + (new_loc - 1);
+			prev_loc = new_loc;
+			s->cost.team_cost[i] += s->cost.distance[dist];
+		}
+		// add the trip home
+		new_loc = i;
+		int dist = ((prev_loc - 1) * s->num_teams) + (new_loc - 1);
+		s->cost.team_cost[i] += s->cost.distance[dist];
+	}
+
+	int total_cost = 0;
+	for (int i = 1; i <= s->num_teams; i++) {
+		total_cost += s->cost.team_cost[i];
+	}
+
+	return total_cost;
+}
+
 // Delete a schedule and free all memory
 void DeleteSchedule(Schedule *s) {
+	free(s->cost.distance);
+	free(s->cost.team_cost);
 	for (int i = 0; i < s->num_rounds; i++) {
 		free(s->round[i]->team);
 		free(s->round[i]);
 	}
 	free(s->round);
 	free(s);
+}
+
+static void inline __PrintTeamCost(Schedule *s, int t) {
+	printf("Team %d cost: %d\n", t, s->cost.team_cost[t]);
+}
+
+// Print each teams cost
+// if t is 0 print all teams, else just print t
+void PrintTeamCost(Schedule *s, int t) {
+	if (t) {
+		__PrintTeamCost(s, t);
+	} else {
+		for (int i = 1; i <= s->num_teams; i++) {
+			__PrintTeamCost(s, i);
+		}
+	}
 }
 
 // Print a schedule

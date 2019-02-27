@@ -12,7 +12,7 @@ const char *const TEAM_NAMES[] = {
 int main(int argc, char **argv) {
 	int num_teams, valid;
 	unsigned int seed = 0;
-	char *temp;
+	char *temp, *filename;
 	Schedule *s;
 	if (argc < 2) {
 		printf("Usage: %s (# of teams) <seed>\n", argv[0]);
@@ -35,7 +35,19 @@ int main(int argc, char **argv) {
 
 	printf("Building random schedule for %d teams with seed %d\n", num_teams, seed);
 
+	filename = calloc(snprintf(NULL, 0, "data/NL%d.data", num_teams) + 1, sizeof(*filename));
+
+	sprintf(filename, "data/NL%d.data", num_teams);
+
 	s = CreateSchedule(num_teams);
+	int cost = InitCost(s, filename);
+	if (cost == 0) {
+		printf("Unable to read file %s\n", filename);
+	} else {
+		printf("Total Cost: %d\n", cost);
+	}
+
+	free(filename);
 
 	PrintSchedule(s, TEAM_NAMES);
 	valid = CheckHardReq(s);

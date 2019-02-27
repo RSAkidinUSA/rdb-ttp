@@ -10,17 +10,25 @@ typedef struct {
 	int *team;
 } Round;
 
+typedef struct {
+	int *team_cost;
+	int *distance;
+} Cost;
+
 // Array of pointers to weeks. Allows for swapping weeks quickly
 // weeks start at 0
 typedef struct {
 	int num_teams;
 	int num_rounds;
 	int set_vals;
+	Cost cost;
 	Round **round;
 } Schedule;
 
 Schedule *CreateSchedule(int num_teams);
+int InitCost(Schedule *s, char *filename);
 void DeleteSchedule(Schedule *s);
+void PrintTeamCost(Schedule *s, int t);
 void PrintSchedule(Schedule *s, const char * const*team_names);
 #define SCHED_INVALID	0x01
 int CheckHardReq(Schedule *s);
@@ -36,7 +44,6 @@ void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l);
 void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_l);
 
 // TODO
-// int InitCost(Schedule *s, char *file_name);
 // int UpdateCost(Schedule *s, int *updated);
 
 #endif /* TTP_H */
