@@ -1,5 +1,6 @@
 #include "ttp.h"
 #include <stdbool.h>
+#include <string.h>
 
 // check if the schedule is empty
 static bool ScheduleEmpty(Schedule *s) {
@@ -137,10 +138,53 @@ void PrintSchedule(Schedule *s) {
 	}
 }
 
-// Determine if a schedule is valid
-// returns 0 if valid, SCHED_ATMOST if the atmost contraint fails
+
+// Determine if a schedule meets the hard requirements
+// returns 0 if it does, SCHED_INVALID if not
+int CheckHardReq(Schedule *s) {
+#define OPP_POS 0x01
+#define OPP_NEG 0x02
+	int retval = 0;
+	char *opponents = calloc(s->num_teams + 1, sizeof(*opponents));
+	// check that every team is played exactly twice
+	for (int i = 1; i <= s->num_teams; i++) {
+		memset(opponents, 0, s->num_teams + 1);
+		for (int j = 0; j < s->num_rounds; j++) {
+			if (s->round[j]->team[i] > 0) {
+				int tmp = s->round[j]->team[i];
+				if (opponents[tmp] & OPP_POS) {
+					retval |= SCHED_INVALID;
+					break;
+				} else {
+					opponents[tmp] |= OPP_POS;
+				}
+			} else if (s->round[j]->team[i] < 0) {
+				int tmp = -s->round[j]->team[i];
+				if (opponents[tmp] & OPP_NEG) {
+					retval |= SCHED_INVALID;
+					break;
+				} else {
+					opponents[tmp] |= OPP_NEG;
+				}
+			} else {
+				retval |= SCHED_INVALID;
+				break;
+			}
+		}
+		if (retval) {
+			break;
+		}
+	}
+	free(opponents);
+	return retval;
+#undef OPP_NEG
+#undef OPP_POS
+}
+
+// Determine if a schedule meets the soft requirements
+// returns 0 if it meets both, SCHED_ATMOST if the atmost contraint fails
 // SCHED_REPEAT if the norepeat contraint fails. These values can OR together
-int ValidSchedule(Schedule *s) {
+int CheckSoftReq(Schedule *s) {
 	int retval = 0;
 	// keeps track of number of consecutive games
 	int *atmost_count = calloc(s->num_teams + 1, sizeof(*atmost_count));
@@ -167,27 +211,6 @@ int ValidSchedule(Schedule *s) {
 				retval |= SCHED_REPEAT;
 			}
 			repeat_val[j] = abs(s->round[i]->team[j]);
-		}
-	}
-	// check that every team is played exactly twice
-	for (int i = 1; i <= s->num_teams; i++) {
-		int away_check = 0, home_check = 0;
-		for (int j = 0; j < s->num_rounds; j++) {
-			if (s->round[j]->team[i] > 0) {
-				home_check += s->round[j]->team[i];
-			} else if (s->round[j]->team[i] < 0) {
-				away_check -= s->round[j]->team[i];
-			} else {
-				retval |= SCHED_INVALID;
-				break;
-			}
-		}
-		// expected sum of teams to play
-		// sum of 1 through N - the current team
-		int expected = ((s->num_teams * (s->num_teams + 1)) / 2) - i; 
-		if (away_check != expected || home_check != expected) {
-			retval |= SCHED_INVALID;
-			break;
 		}
 	}
 	free(repeat_val);

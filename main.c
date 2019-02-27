@@ -30,7 +30,8 @@ int main(int argc, char **argv) {
 
 	s = CreateSchedule(num_teams);
 	PrintSchedule(s);
-	valid = ValidSchedule(s);
+	valid = CheckHardReq(s);
+	valid |= CheckSoftReq(s);
 	if (valid) {
 		if (valid & SCHED_INVALID) {
 			printf("Schedule is invalid\n");

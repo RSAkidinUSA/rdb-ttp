@@ -23,9 +23,10 @@ Schedule *CreateSchedule(int num_teams);
 void DeleteSchedule(Schedule *s);
 void PrintSchedule(Schedule *s);
 #define SCHED_INVALID	0x01
+int CheckHardReq(Schedule *s);
 #define SCHED_ATMOST	0x02
 #define SCHED_REPEAT	0x04
-int ValidSchedule(Schedule *s);
+int CheckSoftReq(Schedule *s);
 
 // Neighborhood functions
 void SwapHomes(Schedule *s, int t_i, int t_j);
