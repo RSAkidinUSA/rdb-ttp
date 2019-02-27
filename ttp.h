@@ -21,7 +21,7 @@ typedef struct {
 
 Schedule *CreateSchedule(int num_teams);
 void DeleteSchedule(Schedule *s);
-void PrintSchedule(Schedule *s);
+void PrintSchedule(Schedule *s, const char * const*team_names);
 #define SCHED_INVALID	0x01
 int CheckHardReq(Schedule *s);
 #define SCHED_ATMOST	0x02
@@ -34,5 +34,9 @@ void SwapRounds(Schedule *s, int r_k, int r_l);
 void SwapTeams(Schedule *s, int t_i, int t_j);
 void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l);
 void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_l);
+
+// TODO
+// int InitCost(Schedule *s, char *file_name);
+// int UpdateCost(Schedule *s, int *updated);
 
 #endif /* TTP_H */

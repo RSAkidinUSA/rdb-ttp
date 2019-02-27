@@ -123,18 +123,29 @@ void DeleteSchedule(Schedule *s) {
 }
 
 // Print a schedule
-void PrintSchedule(Schedule *s) {
-	for (int i = 0; i < s->num_rounds; i++) {
-		printf("\t|\t%d", i + 1);
-	}
-	printf("\t|\n");
+// Takes a schedule to print and a list of team names (must be at least as long as the number of teams)
+// If team names is NULL, just print values
+void PrintSchedule(Schedule *s, const char * const *team_names) {
+	printf("Slot");
 	for (int i = 1; i <= s->num_teams; i++) {
-		printf("%d", i);
-		for (int j = 0; j < s->num_rounds; j++) {
-			printf("\t|\t%d", s->round[j]->team[i]);
+		if (team_names && team_names[i - 1]) {
+			printf("\t%s", team_names[i - 1]);
+		} else {
+			printf("\t%d", i);
 		}
-		printf("\t|\n");
-		fflush(stdout);
+	}
+	printf("\n\n");
+	for (int j = 0; j < s->num_rounds; j++) {
+		printf("%d", j);
+		for (int i = 1; i <= s->num_teams; i++) {
+			int tmp = s->round[j]->team[i];
+			if (team_names && team_names[abs(tmp) - 1]) {				
+				printf("\t%s%s", (tmp < 0) ? "@" : "", team_names[abs(tmp) - 1]);
+			} else {
+				printf("\t%d", s->round[j]->team[i]);
+			}
+		}
+		printf("\n");
 	}
 }
 
@@ -299,5 +310,28 @@ void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l) {
 
 // swaps the games of teams i and j, then updates the schedule
 void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_l) {
-
+	// first swap the current round
+	int tmp = s->round[r_l]->team[t_i];
+	s->round[r_l]->team[t_i] = s->round[r_l]->team[t_j];
+	s->round[r_l]->team[t_j] = tmp;
+	// now swap the affected teams in the same round
+	s->round[r_l]->team[abs(tmp)] = (tmp > 0) ? - t_j : t_j;
+	tmp = s->round[r_l]->team[t_i];
+	s->round[r_l]->team[abs(tmp)] = (tmp > 0) ? - t_i : t_i;
+	// now run recursively on any affected rounds
+	for (int i = 0; i < s->num_rounds; i++) {
+		if (i == r_l) {
+			continue;
+		}
+		if (s->round[r_l]->team[t_i] == s->round[i]->team[t_i] ||
+			s->round[r_l]->team[t_j] == s->round[i]->team[t_j]) {
+			PartialSwapTeams(s, t_i, t_j, i);
+		}
+		int t1 = abs(s->round[r_l]->team[t_i]);
+		int t2 = abs(s->round[r_l]->team[t_j]);
+		if (s->round[r_l]->team[t1] == s->round[i]->team[t1] ||
+			s->round[r_l]->team[t2] == s->round[i]->team[t2]) {
+			PartialSwapTeams(s, t1, t2, i);
+		}
+	}
 }

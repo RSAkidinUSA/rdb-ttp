@@ -2,6 +2,13 @@
 
 enum {ERR_USAGE = 1, ERR_NTEAM, ERR_RSEED};
 
+const char *const TEAM_NAMES[] = {
+		"ATL","NYM","PHI","MON",\
+		"FLA","PIT","CIN","CHI",\
+		"STL","MIL","HOU","COL",\
+		"SF", "SD", "LA", "ARI", 0
+};
+
 int main(int argc, char **argv) {
 	int num_teams, valid;
 	unsigned int seed = 0;
@@ -29,7 +36,8 @@ int main(int argc, char **argv) {
 	printf("Building random schedule for %d teams with seed %d\n", num_teams, seed);
 
 	s = CreateSchedule(num_teams);
-	PrintSchedule(s);
+
+	PrintSchedule(s, NULL);
 	valid = CheckHardReq(s);
 	valid |= CheckSoftReq(s);
 	if (valid) {
@@ -45,6 +53,25 @@ int main(int argc, char **argv) {
 	} else {
 		printf("Valid Schedule!\n");
 	}
+
+	PartialSwapTeams(s, 2, 3, 5);
+	PrintSchedule(s, NULL);
+	valid = CheckHardReq(s);
+	valid |= CheckSoftReq(s);
+	if (valid) {
+		if (valid & SCHED_INVALID) {
+			printf("Schedule is invalid\n");
+		}
+		if (valid & SCHED_ATMOST) {
+			printf("Schedule violates atmost contraint.\n");
+		}
+		if (valid & SCHED_REPEAT) {
+			printf("Schedule violates repeat contraint.\n");
+		}
+	} else {
+		printf("Valid Schedule!\n");
+	}
+
 	DeleteSchedule(s);
 
 	return 0;
