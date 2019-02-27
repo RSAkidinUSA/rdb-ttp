@@ -37,25 +37,7 @@ int main(int argc, char **argv) {
 
 	s = CreateSchedule(num_teams);
 
-	PrintSchedule(s, NULL);
-	valid = CheckHardReq(s);
-	valid |= CheckSoftReq(s);
-	if (valid) {
-		if (valid & SCHED_INVALID) {
-			printf("Schedule is invalid\n");
-		}
-		if (valid & SCHED_ATMOST) {
-			printf("Schedule violates atmost contraint.\n");
-		}
-		if (valid & SCHED_REPEAT) {
-			printf("Schedule violates repeat contraint.\n");
-		}
-	} else {
-		printf("Valid Schedule!\n");
-	}
-
-	PartialSwapTeams(s, 2, 3, 5);
-	PrintSchedule(s, NULL);
+	PrintSchedule(s, TEAM_NAMES);
 	valid = CheckHardReq(s);
 	valid |= CheckSoftReq(s);
 	if (valid) {

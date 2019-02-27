@@ -127,8 +127,12 @@ void DeleteSchedule(Schedule *s) {
 // If team names is NULL, just print values
 void PrintSchedule(Schedule *s, const char * const *team_names) {
 	printf("Slot");
+	int num_team_names = 0;
+	while (team_names[num_team_names]) {
+		num_team_names++;
+	}
 	for (int i = 1; i <= s->num_teams; i++) {
-		if (team_names && team_names[i - 1]) {
+		if (team_names && i <= num_team_names) {
 			printf("\t%s", team_names[i - 1]);
 		} else {
 			printf("\t%d", i);
@@ -139,7 +143,7 @@ void PrintSchedule(Schedule *s, const char * const *team_names) {
 		printf("%d", j);
 		for (int i = 1; i <= s->num_teams; i++) {
 			int tmp = s->round[j]->team[i];
-			if (team_names && team_names[abs(tmp) - 1]) {				
+			if (team_names && abs(tmp) <= num_team_names) {				
 				printf("\t%s%s", (tmp < 0) ? "@" : "", team_names[abs(tmp) - 1]);
 			} else {
 				printf("\t%d", s->round[j]->team[i]);
