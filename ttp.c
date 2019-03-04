@@ -1,6 +1,6 @@
 #include "ttp.h"
-#include <stdbool.h>
 #include <string.h>
+#include <math.h>
 
 // check if the schedule is empty
 static bool ScheduleEmpty(Schedule *s) {
@@ -53,7 +53,7 @@ static void RandomizeOrder(int *order, int num_choices) {
 }
 
 // generate a random schedule
-static bool GenerateSchedule(Schedule *s) {
+bool GenerateSchedule(Schedule *s) {
 	bool retval = false;
 	if (ScheduleEmpty(s)) {
 		return true;
@@ -102,21 +102,69 @@ Schedule *CreateSchedule(int num_teams) {
 	s->round = calloc(s->num_rounds, sizeof(*(s->round)));
 	s->cost.distance = calloc(s->num_teams * s->num_teams, sizeof(*(s->cost.distance)));
 	s->cost.team_cost = calloc(s->num_teams + 1, sizeof(*(s->cost.team_cost)));
+	s->cost.updated = calloc(s->num_teams + 1, sizeof(*(s->cost.updated)));
+	s->cost.total_cost = 0;
 
 	// allocate memory
 	for (int i = 0; i < s->num_rounds; i++) {
 		s->round[i] = calloc(1, sizeof(*(s->round[i])));
 		s->round[i]->team = calloc(s->num_teams + 1, sizeof(*(s->round[i]->team)));
 	}
-	// fill teams
-	GenerateSchedule(s);
 
 	return s;
 }
 
+// copies a schedule from source to destination
+// requires both be initialized
+// if copy_costs is true, copy the cost table, else skip
+static void CopySchedule(Schedule *dst, Schedule *src, bool copy_costs) {
+	for (int i = 0; i < src->num_rounds; i++) {
+		for (int j = 1; j <= src->num_teams; j++) {
+			dst->round[i]->team[j] = src->round[i]->team[j];
+		}
+	}
+	for (int i = 1; i <= src->num_teams; i++) {
+		dst->cost.team_cost[i] = src->cost.team_cost[i];
+	}
+	dst->cost.total_cost = src->cost.total_cost;
+	if (copy_costs) {
+		for (int i = 0; i < src->num_teams * src->num_teams; i++) {
+			dst->cost.distance[i] = src->cost.distance[i];
+		}
+	}
+}
+
+// update the costs for all teams with their updated flags set to true
+static void UpdateCost(Schedule *s) {
+	for (int i = 1; i <= s->num_teams; i++) {
+		if (s->cost.updated[i]) {
+			s->cost.total_cost -= s->cost.team_cost[i];
+			s->cost.team_cost[i] = 0;
+
+			int prev_loc, new_loc;
+			// actual cost update
+			prev_loc = i;
+			for (int j = 0; j < s->num_rounds; j++) {
+				new_loc = (s->round[j]->team[i] > 0) ? i : abs(s->round[j]->team[i]);;
+				int dist = ((prev_loc - 1) * s->num_teams) + (new_loc - 1);
+				prev_loc = new_loc;
+				s->cost.team_cost[i] += s->cost.distance[dist];
+			}
+			// add the trip home
+			new_loc = i;
+			int dist = ((prev_loc - 1) * s->num_teams) + (new_loc - 1);
+			s->cost.team_cost[i] += s->cost.distance[dist];
+			// end cost update
+
+			s->cost.total_cost += s->cost.team_cost[i];
+			s->cost.updated[i] = false;
+		}
+	}
+}
+
 // Initialize the distances and calculate the current cost
 // returns 0 on failure, else a positive value
-int InitCost(Schedule *s, char *filename) {
+unsigned long InitCost(Schedule *s, char *filename) {
 	FILE *fptr = fopen(filename, "r");
 	if (fptr == NULL) {
 		return 0;
@@ -130,34 +178,20 @@ int InitCost(Schedule *s, char *filename) {
 		}
 	}
 	fclose(fptr);
-
-	int prev_loc, new_loc;
+	
 	for (int i = 1; i <= s->num_teams; i++) {
-		prev_loc = i;
-		for (int j = 0; j < s->num_rounds; j++) {
-			new_loc = (s->round[j]->team[i] > 0) ? i : abs(s->round[j]->team[i]);;
-			int dist = ((prev_loc - 1) * s->num_teams) + (new_loc - 1);
-			prev_loc = new_loc;
-			s->cost.team_cost[i] += s->cost.distance[dist];
-		}
-		// add the trip home
-		new_loc = i;
-		int dist = ((prev_loc - 1) * s->num_teams) + (new_loc - 1);
-		s->cost.team_cost[i] += s->cost.distance[dist];
+		s->cost.updated[i] = true;
 	}
+	UpdateCost(s);
 
-	int total_cost = 0;
-	for (int i = 1; i <= s->num_teams; i++) {
-		total_cost += s->cost.team_cost[i];
-	}
-
-	return total_cost;
+	return s->cost.total_cost;
 }
 
 // Delete a schedule and free all memory
 void DeleteSchedule(Schedule *s) {
-	free(s->cost.distance);
+	free(s->cost.updated);
 	free(s->cost.team_cost);
+	free(s->cost.distance);
 	for (int i = 0; i < s->num_rounds; i++) {
 		free(s->round[i]->team);
 		free(s->round[i]);
@@ -167,7 +201,7 @@ void DeleteSchedule(Schedule *s) {
 }
 
 static void inline __PrintTeamCost(Schedule *s, int t) {
-	printf("Team %d cost: %d\n", t, s->cost.team_cost[t]);
+	printf("Team %d cost: %lu\n", t, s->cost.team_cost[t]);
 }
 
 // Print each teams cost
@@ -225,6 +259,9 @@ int CheckHardReq(Schedule *s) {
 	for (int i = 1; i <= s->num_teams; i++) {
 		memset(opponents, 0, s->num_teams + 1);
 		for (int j = 0; j < s->num_rounds; j++) {
+			if (abs(s->round[j]->team[i]) == i) {
+				retval |= SCHED_INVALID;
+			}
 			if (s->round[j]->team[i] > 0) {
 				int tmp = s->round[j]->team[i];
 				if (opponents[tmp] & OPP_POS) {
@@ -259,8 +296,12 @@ int CheckHardReq(Schedule *s) {
 // Determine if a schedule meets the soft requirements
 // returns 0 if it meets both, SCHED_ATMOST if the atmost contraint fails
 // SCHED_REPEAT if the norepeat contraint fails. These values can OR together
-int CheckSoftReq(Schedule *s) {
+// takes an optional argument nbv, which is incremented each time a constratin is found
+int CheckSoftReq(Schedule *s, int *nbv) {
 	int retval = 0;
+	if (nbv) {
+		*nbv = 0;
+	}
 	// keeps track of number of consecutive games
 	int *atmost_count = calloc(s->num_teams + 1, sizeof(*atmost_count));
 	// keeps track of location of consectutive games
@@ -280,10 +321,16 @@ int CheckSoftReq(Schedule *s) {
 			}
 			if (atmost_count[j] > 3) {
 				retval |= SCHED_ATMOST;
+				if (nbv) {
+					*nbv += 1;
+				}
 			}
 			// check repeats
 			if (repeat_val[j] == abs(s->round[i]->team[j])) {
 				retval |= SCHED_REPEAT;
+				if (nbv) {
+					*nbv += 1;
+				}
 			}
 			repeat_val[j] = abs(s->round[i]->team[j]);
 		}
@@ -308,6 +355,8 @@ void SwapHomes(Schedule *s, int t_i, int t_j) {
 			break;
 		}
 	}
+	s->cost.updated[t_i] = true;
+	s->cost.updated[t_j] = true;
 }
 
 // Swaps rounds k and l
@@ -315,6 +364,9 @@ void SwapRounds(Schedule *s, int r_k, int r_l) {
 	Round *tmp = s->round[r_k];
 	s->round[r_k] = s->round[r_l];
 	s->round[r_l] = tmp;
+	for (int i = 1; i <= s->num_teams; i++) {
+		s->cost.updated[i] = true;
+	}
 }
 
 // Swaps teams i and j
@@ -333,6 +385,9 @@ void SwapTeams(Schedule *s, int t_i, int t_j) {
 			tmp = s->round[i]->team[t_i];
 			s->round[i]->team[abs(tmp)] = (tmp > 0) ? -t_i : t_i;
 		}
+	}
+	for (int i = 1; i <= s->num_teams; i++) {
+		s->cost.updated[i] = true;
 	}
 }
 
@@ -367,35 +422,179 @@ void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l) {
 			tmp = s->round[r_k]->team[i];
 			s->round[r_k]->team[i] = s->round[r_l]->team[i];
 			s->round[r_l]->team[i] = tmp;
+			s->cost.updated[i] = true;
 		}
 	}
 	free(swap);
 }
 
 // swaps the games of teams i and j, then updates the schedule
-void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_l) {
+void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_k) {
+	// if trying an invalid swap, just return
+	if (t_i == abs(s->round[r_k]->team[t_j]) ||
+			t_j == abs(s->round[r_k]->team[t_i])) {
+		return;
+	}
 	// first swap the current round
-	int tmp = s->round[r_l]->team[t_i];
-	s->round[r_l]->team[t_i] = s->round[r_l]->team[t_j];
-	s->round[r_l]->team[t_j] = tmp;
+	int tmp = s->round[r_k]->team[t_i];
+	s->round[r_k]->team[t_i] = s->round[r_k]->team[t_j];
+	s->round[r_k]->team[t_j] = tmp;
 	// now swap the affected teams in the same round
-	s->round[r_l]->team[abs(tmp)] = (tmp > 0) ? - t_j : t_j;
-	tmp = s->round[r_l]->team[t_i];
-	s->round[r_l]->team[abs(tmp)] = (tmp > 0) ? - t_i : t_i;
+	s->round[r_k]->team[abs(tmp)] = (tmp > 0) ? - t_j : t_j;
+	tmp = s->round[r_k]->team[t_i];
+	s->round[r_k]->team[abs(tmp)] = (tmp > 0) ? - t_i : t_i;
+	// update costs:
+	s->cost.updated[t_i] = true;
+	s->cost.updated[t_j] = true;
+	s->cost.updated[abs(s->round[r_k]->team[t_i])] = true;
+	s->cost.updated[abs(s->round[r_k]->team[t_j])] = true;
 	// now run recursively on any affected rounds
 	for (int i = 0; i < s->num_rounds; i++) {
-		if (i == r_l) {
+		if (i == r_k) {
 			continue;
 		}
-		if (s->round[r_l]->team[t_i] == s->round[i]->team[t_i] ||
-			s->round[r_l]->team[t_j] == s->round[i]->team[t_j]) {
+		if (s->round[r_k]->team[t_i] == s->round[i]->team[t_i] ||
+			s->round[r_k]->team[t_j] == s->round[i]->team[t_j]) {
 			PartialSwapTeams(s, t_i, t_j, i);
 		}
-		int t1 = abs(s->round[r_l]->team[t_i]);
-		int t2 = abs(s->round[r_l]->team[t_j]);
-		if (s->round[r_l]->team[t1] == s->round[i]->team[t1] ||
-			s->round[r_l]->team[t2] == s->round[i]->team[t2]) {
+		int t1 = abs(s->round[r_k]->team[t_i]);
+		int t2 = abs(s->round[r_k]->team[t_j]);
+		if (s->round[r_k]->team[t1] == s->round[i]->team[t1] ||
+			s->round[r_k]->team[t2] == s->round[i]->team[t2]) {
 			PartialSwapTeams(s, t1, t2, i);
 		}
 	}
+}
+
+static double __Sublinear(int v) {
+	return 1 + (sqrt(v) * log(v) / 2);
+}
+
+// Objective function
+static unsigned long __Objective(Schedule *s, int weight, int nbv) {
+	if (nbv) {
+		return (unsigned long) sqrt(pow(s->cost.total_cost, 2) + pow(weight * __Sublinear(nbv), 2));
+	} else {
+		return s->cost.total_cost;
+	}
+}
+
+static void __DoRandomChange(Schedule *s, bool undo) {
+	// teams
+	static int t_i = 1; static int t_j = 1;
+	// rounds
+	static int r_k = 0;	static int r_l = 0;
+	// function
+	static int f = 0;
+
+	if (!undo) {
+		t_i = (rand() % s->num_teams) + 1;
+		do {
+			t_j = (rand() % s->num_teams) + 1;
+		} while (t_j == t_i);
+		r_k = rand() % s->num_rounds;
+		do {
+			r_l = rand() % s->num_rounds;
+		} while (r_l == r_k);
+		f = rand() % 5;
+	}
+	switch(f) {
+		case 0:
+			SwapHomes(s, t_i, t_j);
+			break;
+		case 1:
+			SwapRounds(s, r_k, r_l);
+			break;
+		case 2:
+			SwapTeams(s, t_i, t_j);
+			break;
+		case 3:
+			PartialSwapRounds(s, t_i, r_k, r_l);
+			break;
+		case 4:
+			PartialSwapTeams(s, t_i, t_j, r_l);
+			break;
+	}
+	UpdateCost(s);
+}
+
+#define UL_INF ((unsigned long) ~0)
+
+// Runs the simulated annealing algorithm for a given temperature and beta
+// requires initial schedule with initial cost
+// Best feasible is stored in s
+void Anneal(Schedule *sbi, Settings settings) {
+	// best feasible so far
+	Schedule *sbf = CreateSchedule(sbi->num_teams);
+	if (!CheckSoftReq(sbi, NULL)) {
+		CopySchedule(sbf, sbi, false);
+	} else {
+		sbf->cost.total_cost = UL_INF;
+	}
+	unsigned long best_feasible = UL_INF, nbf = UL_INF;
+	unsigned long best_infeasible = UL_INF, nbi = UL_INF;
+	int best_temp = 0;
+	int reheat = 0;
+	int nbv;
+	while (reheat <= settings.max_reheat) {
+		int phase = 0;
+		while (phase <= settings.max_phase) {
+			int counter = 0;
+			while (counter <= settings.max_counter) {
+				bool accept;
+				CheckSoftReq(sbi, &nbv);
+				unsigned long old_cost = __Objective(sbi, settings.weight, nbv);
+				__DoRandomChange(sbi, false);
+				CheckSoftReq(sbi, &nbv);
+				unsigned long new_cost = __Objective(sbi, settings.weight, nbv);
+
+				if ((new_cost < old_cost) || 
+						(nbv == 0 && new_cost < best_feasible) || 
+						(nbv > 0 && new_cost < best_infeasible)) {
+					accept = true;
+				} else if (exp((old_cost - new_cost) / settings.temp)) {
+					accept = true;
+				} else {
+					accept = false;
+				}
+				if (accept) {
+					if (nbv == 0) {
+						nbf = (new_cost < best_feasible) ? 
+								new_cost : best_feasible;
+						if (nbf < best_feasible) {
+							sbf->cost.total_cost = new_cost;
+							CopySchedule(sbf, sbi, false);
+						}
+					} else {
+						nbi = (new_cost < best_infeasible) ? 
+								new_cost : best_infeasible;
+					}
+					if (nbf < best_feasible || nbi < best_infeasible) {
+						reheat = 0; counter = 0; phase = 0;
+						best_temp = settings.temp;
+						best_feasible = nbf;
+						best_infeasible = nbi;
+						if (nbv == 0) {
+							settings.weight = settings.weight / settings.theta;
+						} else {
+							settings.weight = settings.weight * settings.delta;
+						}
+					} else {
+						counter++;
+					}
+				} else {
+					// undo the change
+					__DoRandomChange(sbi, true);
+				}
+			} // counter
+			phase++;
+			settings.temp = settings.temp * settings.beta;
+		} // phase
+		reheat++;
+		settings.temp = 2 * best_temp;
+	} // reheat
+	if (!CheckHardReq(sbf)) {
+		CopySchedule(sbi, sbf, true);
+	}
+	DeleteSchedule(sbf);
 }

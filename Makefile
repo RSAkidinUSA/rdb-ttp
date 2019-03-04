@@ -33,7 +33,7 @@ O3: CFLAGS += -O3
 O3:	build
 
 build: $(OBJ)
-	$(CC) -o $(APP) $(OBJ)
+	$(CC) -o $(APP) $(OBJ) -lm
 
 clean:
 	rm -f $(OBJ) $(APP)
