@@ -108,7 +108,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 			}
 			args->num_teams = strtoul(arg, &ptr, 10);
 			if (ptr == arg || args->num_teams < 3 || args->num_teams % 2) {
-				printf("Error: Number of teams must be even and greater than 4\n");
+				printf("Error: Number of teams must be even and greater than 3\n");
 				return ERR_NTEAM;
 			}
 			break;
