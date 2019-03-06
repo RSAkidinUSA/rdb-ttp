@@ -41,11 +41,11 @@ typedef struct {
 	double temp;
 	double beta; 
 	double weight;
-	int theta; 
-	int delta;
-	int max_reheat;
-	int max_phase;
-	int max_counter;
+	unsigned theta; 
+	unsigned delta;
+	unsigned max_reheat;
+	unsigned max_phase;
+	unsigned max_counter;
 } Settings;
 
 Schedule *CreateSchedule(int num_teams);
