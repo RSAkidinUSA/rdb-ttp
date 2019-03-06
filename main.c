@@ -70,8 +70,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 			break;
 		case 'd':
 			args->settings->delta = args->settings->theta = strtoul(arg, &ptr, 10);
-			if (ptr == arg || args->settings->delta == 0) {
-				printf("Error: Delta must be a positive integer\n");
+			if (ptr == arg || args->settings->delta <= 1) {
+				printf("Error: Delta must be a positive integer greater than 1\n");
 				return ERR_USAGE;
 			}
 			break;
