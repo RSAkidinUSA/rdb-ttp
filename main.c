@@ -24,6 +24,7 @@ static struct argp_option options[] = {
 	{ "max-counter", 'c', "counter", 0, "Maxmimum counter value" },
 	{ "Print", 'P', 0, 0, "Print the final schedule" },
 	{ "verbose", 'v', 0, 0, "Print the settings used to anneal" },
+	{ "update", 'u', 0, 0, "Print the progress of the annealing occasionally" },
 	{ 0 }
 };
 
@@ -69,9 +70,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 			}
 			break;
 		case 'd':
-			args->settings->delta = args->settings->theta = strtoul(arg, &ptr, 10);
+			args->settings->delta = args->settings->theta = strtof(arg, &ptr);
 			if (ptr == arg || args->settings->delta <= 1) {
-				printf("Error: Delta must be a positive integer greater than 1\n");
+				printf("Error: Delta must be a float greater than 1\n");
 				return ERR_USAGE;
 			}
 			break;
@@ -101,6 +102,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 			break;
 		case 'v':
 			args->verbose = true;
+			break;
+		case 'u':
+			args->settings->update = true;
 			break;
 		case ARGP_KEY_ARG:
 			if (state->arg_num >= 1) {
@@ -136,13 +140,14 @@ unsigned GetArgs(int argc, char **argv, unsigned *num_teams, Settings *settings)
 	arguments.print = false;
 	arguments.verbose = false;
 	arguments.settings = settings;
-	settings->temp = 100;
-	settings->beta = 0.9; 
-	settings->weight = 1;
-	settings->theta = settings->delta = 3; 
-	settings->max_reheat = 5;
-	settings->max_phase = 100;
-	settings->max_counter = 100;
+	settings->temp = 400;
+	settings->beta = 0.9999; 
+	settings->weight = 4000;
+	settings->theta = settings->delta = 1.04; 
+	settings->max_reheat = 10;
+	settings->max_phase = 7100;
+	settings->max_counter = 5000;
+	settings->update = false;
 
 	if ((retval = argp_parse(&argp, argc, argv, 0, 0, &arguments))) {
 		return retval;
@@ -157,7 +162,7 @@ unsigned GetArgs(int argc, char **argv, unsigned *num_teams, Settings *settings)
 		printf("Building schedule for %d teams with seed %d\n", \
 				arguments.num_teams, arguments.seed);
 		printf("Settings:\n");
-		printf("Starting temp: %f\nBeta: %f\nWeight: %f\nTheta/Delta: %d\n"\
+		printf("Starting temp: %f\nBeta: %f\nWeight: %f\nTheta/Delta: %f\n"\
 				"Max Reheat: %d\nMax Phase: %d\nMax Counter: %d\n", \
 				settings->temp,	settings->beta, settings->weight, \
 				settings->theta, settings->max_reheat, settings->max_phase, \
@@ -172,6 +177,7 @@ int main(int argc, char **argv) {
 	char *filename;
 	Schedule *s;
 	Settings settings;
+
 	if ((retval = GetArgs(argc, argv, &num_teams, &settings))) {
 		return retval;
 	}

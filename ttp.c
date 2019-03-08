@@ -58,7 +58,7 @@ bool GenerateSchedule(Schedule *s) {
 	if (ScheduleEmpty(s)) {
 		return true;
 	}
-	int t, w;
+	int t = 0, w;
 	// find the smallest team for the smallest week
 	for (w = 0; w < s->num_rounds; w++) {
 		for (t = 1; t <= s->num_teams; t++) {
@@ -171,8 +171,7 @@ unsigned long InitCost(Schedule *s, char *filename) {
 	}
 	// read in costs
 	for (int i = 0; i < s->num_teams * s->num_teams; i++) {
-		fscanf(fptr, " ");
-		if (!fscanf(fptr, "%d", &(s->cost.distance[i]))) {
+		if (!fscanf(fptr, "%d ", &(s->cost.distance[i]))) {
 			fclose(fptr);
 			return 0;
 		}
@@ -343,7 +342,7 @@ int CheckSoftReq(Schedule *s, int *nbv) {
 
 // Neighborhood functions
 // Swaps the home and away games for team i and j
-void SwapHomes(Schedule *s, int t_i, int t_j) {
+static void SwapHomes(Schedule *s, int t_i, int t_j) {
 	int j = 0;
 	for (int i = 0; i < s->num_rounds; i++) {
 		if (abs(s->round[i]->team[t_i]) == t_j) {
@@ -360,7 +359,7 @@ void SwapHomes(Schedule *s, int t_i, int t_j) {
 }
 
 // Swaps rounds k and l
-void SwapRounds(Schedule *s, int r_k, int r_l) {
+static void SwapRounds(Schedule *s, int r_k, int r_l) {
 	Round *tmp = s->round[r_k];
 	s->round[r_k] = s->round[r_l];
 	s->round[r_l] = tmp;
@@ -370,7 +369,7 @@ void SwapRounds(Schedule *s, int r_k, int r_l) {
 }
 
 // Swaps teams i and j
-void SwapTeams(Schedule *s, int t_i, int t_j) {
+static void SwapTeams(Schedule *s, int t_i, int t_j) {
 	for (int i = 0; i < s->num_rounds; i++) {
 		// teams are playing each other, skip
 		if (abs(s->round[i]->team[t_i]) == t_j) {
@@ -392,7 +391,7 @@ void SwapTeams(Schedule *s, int t_i, int t_j) {
 }
 
 // swaps games for a single team at rounds k and l
-void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l) {
+static void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l) {
 	// get list of teams to swap
 	int *swap = calloc(s->num_teams + 1, sizeof(*swap));
 	int tmp;
@@ -429,7 +428,7 @@ void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l) {
 }
 
 // swaps the games of teams i and j, then updates the schedule
-void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_k) {
+static void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_k) {
 	// if trying an invalid swap, just return
 	if (t_i == abs(s->round[r_k]->team[t_j]) ||
 			t_j == abs(s->round[r_k]->team[t_i])) {
@@ -536,6 +535,12 @@ void Anneal(Schedule *sbi, Settings settings) {
 	int best_temp = 0;
 	int reheat = 0;
 	int nbv;
+	double total_cycles = (settings.max_reheat + 1) * (settings.max_phase + 1) \
+			* (settings.max_counter + 1);
+	double num_cycles = 0;
+	if (settings.update) {
+		printf("Percentage complete:\n%.2f", 0.0);
+	}
 	while (reheat <= settings.max_reheat) {
 		int phase = 0;
 		while (phase <= settings.max_phase) {
@@ -570,7 +575,7 @@ void Anneal(Schedule *sbi, Settings settings) {
 								new_cost : best_infeasible;
 					}
 					if (nbf < best_feasible || nbi < best_infeasible) {
-						reheat = 0; counter = 0; phase = 0;
+						reheat = 0; counter = 0; phase = 0; num_cycles = 0;
 						best_temp = settings.temp;
 						best_feasible = nbf;
 						best_infeasible = nbi;
@@ -581,6 +586,7 @@ void Anneal(Schedule *sbi, Settings settings) {
 						}
 					} else {
 						counter++;
+						num_cycles++;
 					}
 				} else {
 					// undo the change
@@ -588,11 +594,17 @@ void Anneal(Schedule *sbi, Settings settings) {
 				}
 			} // counter
 			phase++;
+			if (settings.update) {
+				printf("\r%.2f%%\t\t\t", (num_cycles / total_cycles) * 100.00);
+			}
 			settings.temp = settings.temp * settings.beta;
 		} // phase
 		reheat++;
 		settings.temp = 2 * best_temp;
 	} // reheat
+	if (settings.update) {
+		printf("\n");
+	}
 	if (!CheckHardReq(sbf)) {
 		CopySchedule(sbi, sbf, true);
 	}

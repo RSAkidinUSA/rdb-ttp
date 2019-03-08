@@ -40,12 +40,13 @@ typedef struct {
 typedef struct {
 	double temp;
 	double beta; 
+	double delta;
+	double theta; 
 	double weight;
-	unsigned theta; 
-	unsigned delta;
 	unsigned max_reheat;
 	unsigned max_phase;
 	unsigned max_counter;
+	bool update;
 } Settings;
 
 Schedule *CreateSchedule(int num_teams);
@@ -59,13 +60,6 @@ int CheckHardReq(Schedule *s);
 #define SCHED_ATMOST	0x02
 #define SCHED_REPEAT	0x04
 int CheckSoftReq(Schedule *s, int *nbv);
-
-// Neighborhood functions
-void SwapHomes(Schedule *s, int t_i, int t_j);
-void SwapRounds(Schedule *s, int r_k, int r_l);
-void SwapTeams(Schedule *s, int t_i, int t_j);
-void PartialSwapRounds(Schedule *s, int t_i, int r_k, int r_l);
-void PartialSwapTeams(Schedule *s, int t_i, int t_j, int r_k);
 
 // Annealing algorithm
 void Anneal(Schedule *s, Settings settings);
