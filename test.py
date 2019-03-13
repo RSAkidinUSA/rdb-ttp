@@ -29,6 +29,7 @@ def worker(results, num_teams, temp):
 				successful = 0
 				min_time = sys.maxsize; max_time = 0; avg_time = 0
 				min_cost = sys.maxsize; max_cost = 0; avg_cost = 0
+				min_seed = 0; max_seed = 0
 				for seed in range(0,4):
 					args = ["./rdb-ttp", str(num_teams), \
 							"-s", str(seed), "-b", str(beta), "-d", str(delta), \
@@ -46,8 +47,10 @@ def worker(results, num_teams, temp):
 							avg_cost += cost
 							if (cost < min_cost):
 								min_cost = cost
+								min_seed = seed
 							elif (cost > max_cost):
 								max_cost = cost
+								max_seed = seed
 							if (comp_time < min_time):
 								min_time = comp_time
 							elif (comp_time > max_time):
@@ -55,9 +58,9 @@ def worker(results, num_teams, temp):
 					except Exception as e:
 						print("Error: %s" % (e,))
 				LOCK.acquire()
-				results.write("%f,%f,%f,%d,%d,%d,%d,%d,%d,%d," % \
+				results.write("%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d," % \
 						(temp, beta, weight, delta, reheat, phase, counter, \
-						successful, min_cost, max_cost))
+						successful, min_seed, max_seed, min_cost, max_cost))
 				if (successful > 0):
 					results.write("%d" % (avg_cost / successful,))
 				else:
@@ -84,7 +87,7 @@ def main():
 	results = open("results.csv", "w")
 	
 	results.write("Temp,Beta,Weight,Delta,Reheat,Phase,Counter,Successful,"\
-			"Min-Cost,Max-Cost,Avg-Cost")
+			"Min-Seed,Max-Seed,Min-Cost,Max-Cost,Avg-Cost")
 	if DO_TIMING:
 		results.write(",Min-Time,Max-Time,Avg-Time\n")
 	else:
