@@ -1,6 +1,7 @@
 #include "ttp.h"
 #include <string.h>
 #include <math.h>
+#include <float.h>
 
 // check if the schedule is empty
 static bool ScheduleEmpty(Schedule *s) {
@@ -470,11 +471,12 @@ static double __Sublinear(int v) {
 }
 
 // Objective function
-static unsigned long __Objective(Schedule *s, int weight, int nbv) {
+static double __Objective(Schedule *s, int weight, int nbv) {
 	if (nbv) {
-		return (unsigned long) sqrt(pow(s->cost.total_cost, 2) + pow(weight * __Sublinear(nbv), 2));
+		double tmp = weight * __Sublinear(nbv);
+		return sqrt((double) (s->cost.total_cost * s->cost.total_cost) + (tmp * tmp));
 	} else {
-		return s->cost.total_cost;
+		return (double) s->cost.total_cost;
 	}
 }
 
@@ -530,8 +532,8 @@ void Anneal(Schedule *sbi, Settings settings) {
 	} else {
 		sbf->cost.total_cost = UL_INF;
 	}
-	unsigned long best_feasible = UL_INF, nbf = UL_INF;
-	unsigned long best_infeasible = UL_INF, nbi = UL_INF;
+	double best_feasible = DBL_MAX, nbf = DBL_MAX;
+	double best_infeasible = DBL_MAX, nbi = DBL_MAX;
 	int best_temp = 0;
 	int reheat = 0;
 	int nbv;
@@ -548,10 +550,10 @@ void Anneal(Schedule *sbi, Settings settings) {
 			while (counter <= settings.max_counter) {
 				bool accept;
 				CheckSoftReq(sbi, &nbv);
-				unsigned long old_cost = __Objective(sbi, settings.weight, nbv);
+				double old_cost = __Objective(sbi, settings.weight, nbv);
 				__DoRandomChange(sbi, false);
 				CheckSoftReq(sbi, &nbv);
-				unsigned long new_cost = __Objective(sbi, settings.weight, nbv);
+				double new_cost = __Objective(sbi, settings.weight, nbv);
 
 				if ((new_cost < old_cost) || 
 						(nbv == 0 && new_cost < best_feasible) || 
@@ -567,7 +569,7 @@ void Anneal(Schedule *sbi, Settings settings) {
 						nbf = (new_cost < best_feasible) ? 
 								new_cost : best_feasible;
 						if (nbf < best_feasible) {
-							sbf->cost.total_cost = new_cost;
+							sbf->cost.total_cost = (unsigned long) new_cost;
 							CopySchedule(sbf, sbi, false);
 						}
 					} else {
