@@ -58,7 +58,7 @@ def worker(results, num_teams, temp):
 					except Exception as e:
 						print("Error: %s" % (e,))
 				LOCK.acquire()
-				results.write("%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d," % \
+				results.write("%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d," % \
 						(temp, beta, weight, delta, reheat, phase, counter, \
 						successful, min_seed, max_seed, min_cost, max_cost))
 				if (successful > 0):
